@@ -1,0 +1,1345 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>India Weather Alert — Live Tracker</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@300;400;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#050810;--bg2:#0c1120;--bg3:#111827;
+  --card:#0f1828;--card2:#131e30;
+  --border:rgba(99,180,255,0.1);--border2:rgba(99,180,255,0.2);
+  --accent:#38bdf8;--accent2:#818cf8;
+  --danger:#f87171;--warn:#fbbf24;--success:#34d399;
+  --text:#e2e8f0;--muted:#64748b;--muted2:#94a3b8;
+  --rain:#60a5fa;--thunder:#fde68a;--snow:#e0f2fe;--haze:#d4b896;
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+html{scroll-behavior:smooth;}
+body{
+  font-family:'Space Grotesk',sans-serif;
+  background:var(--bg);color:var(--text);
+  min-height:100vh;overflow-x:hidden;
+}
+#stars-canvas{position:fixed;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:0;opacity:0.5;}
+.app{position:relative;z-index:1;max-width:1500px;margin:0 auto;padding:0 1.25rem 3rem;}
+
+/* HEADER */
+header{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:1.1rem 0 0.9rem;border-bottom:1px solid var(--border);
+  flex-wrap:wrap;gap:8px;
+}
+.logo{display:flex;align-items:center;gap:10px;}
+.logo-icon{
+  width:38px;height:38px;
+  background:linear-gradient(135deg,#38bdf8,#818cf8);
+  border-radius:10px;display:flex;align-items:center;justify-content:center;
+  font-size:20px;flex-shrink:0;
+}
+.logo h1{font-size:1.1rem;font-weight:700;letter-spacing:-0.4px;}
+.logo h1 span{color:var(--accent);}
+.logo-sub{color:var(--muted);font-size:0.7rem;font-weight:400;}
+.header-right{display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
+.live-badge{
+  display:flex;align-items:center;gap:5px;
+  background:rgba(52,211,153,0.1);border:1px solid rgba(52,211,153,0.25);
+  padding:5px 11px;border-radius:999px;font-size:0.7rem;color:var(--success);
+  font-weight:700;letter-spacing:0.06em;text-transform:uppercase;
+}
+.live-dot{width:6px;height:6px;background:var(--success);border-radius:50%;animation:pulse 1.4s infinite;}
+@keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:0.4;transform:scale(1.5)}}
+#clock{font-size:0.8rem;color:var(--muted2);font-family:'JetBrains Mono',monospace;font-weight:400;}
+
+/* CONTROLS */
+.controls{display:flex;gap:8px;padding:0.9rem 0 0.7rem;flex-wrap:wrap;}
+.search-wrap{flex:1;min-width:200px;position:relative;}
+.search-wrap input{
+  width:100%;background:var(--card);border:1px solid var(--border);
+  border-radius:10px;padding:8px 12px 8px 36px;color:var(--text);
+  font-family:inherit;font-size:0.85rem;outline:none;transition:border-color .2s;
+}
+.search-wrap input:focus{border-color:var(--accent);}
+.search-wrap input::placeholder{color:var(--muted);}
+.s-icon{position:absolute;left:11px;top:50%;transform:translateY(-50%);font-size:14px;color:var(--muted);}
+select{
+  background:var(--card);border:1px solid var(--border);
+  border-radius:10px;padding:8px 12px;color:var(--text);
+  font-family:inherit;font-size:0.85rem;outline:none;cursor:pointer;transition:border-color .2s;
+}
+select:focus{border-color:var(--accent);}
+select option{background:var(--bg3);}
+
+/* TICKER */
+.ticker-wrap{
+  background:rgba(248,113,113,0.06);border:1px solid rgba(248,113,113,0.18);
+  border-radius:9px;padding:7px 12px;margin-bottom:0.9rem;
+  display:flex;align-items:center;gap:10px;overflow:hidden;
+}
+.ticker-label{
+  font-size:0.68rem;font-weight:700;color:var(--danger);
+  text-transform:uppercase;letter-spacing:0.08em;white-space:nowrap;
+  background:rgba(248,113,113,0.13);padding:3px 8px;border-radius:6px;
+}
+.ticker-track{flex:1;overflow:hidden;height:18px;}
+.ticker-inner{
+  display:flex;gap:50px;white-space:nowrap;
+  animation:ticker 50s linear infinite;
+  font-size:0.78rem;color:var(--muted2);
+}
+@keyframes ticker{from{transform:translateX(0)}to{transform:translateX(-50%)}}
+
+/* MAIN LAYOUT */
+.main-grid{display:grid;grid-template-columns:320px 1fr;gap:1rem;}
+@media(max-width:900px){.main-grid{grid-template-columns:1fr;}}
+
+/* CITY LIST */
+.city-list{
+  background:var(--card);border:1px solid var(--border);border-radius:14px;
+  overflow:hidden;display:flex;flex-direction:column;max-height:820px;
+}
+.cl-header{
+  padding:0.85rem 1rem 0.65rem;border-bottom:1px solid var(--border);
+  display:flex;align-items:center;justify-content:space-between;
+}
+.cl-title{font-size:0.72rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.07em;}
+#city-count{font-size:0.7rem;color:var(--accent);font-weight:600;}
+.city-scroll{overflow-y:auto;flex:1;}
+.city-scroll::-webkit-scrollbar{width:3px;}
+.city-scroll::-webkit-scrollbar-thumb{background:var(--border2);border-radius:3px;}
+
+.city-item{
+  display:flex;align-items:center;gap:10px;padding:8px 1rem;
+  cursor:pointer;border-bottom:1px solid rgba(99,180,255,0.04);
+  transition:background .12s;position:relative;
+}
+.city-item:hover{background:rgba(56,189,248,0.05);}
+.city-item.active{background:rgba(56,189,248,0.09);border-left:2px solid var(--accent);}
+.ci-icon{font-size:1.3rem;width:30px;text-align:center;flex-shrink:0;}
+.ci-info{flex:1;min-width:0;}
+.ci-name{font-size:0.85rem;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.ci-meta{font-size:0.68rem;color:var(--muted);}
+
+/* TEMPERATURE DISPLAY IN LIST — animated color */
+.ci-temp{
+  font-size:1.15rem;font-weight:700;font-family:'JetBrains Mono',monospace;
+  flex-shrink:0;letter-spacing:-1px;
+  transition:color 0.5s;
+}
+.ci-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0;}
+.dot-red{background:var(--danger);box-shadow:0 0 5px var(--danger);}
+.dot-yellow{background:var(--warn);box-shadow:0 0 5px var(--warn);}
+.dot-green{background:var(--success);box-shadow:0 0 4px var(--success);}
+.ci-type{font-size:0.62rem;color:var(--muted);white-space:nowrap;}
+
+/* DETAIL PANEL */
+.detail-panel{display:flex;flex-direction:column;gap:0.9rem;}
+
+/* ── BIG TEMPERATURE HERO ── */
+.temp-hero{
+  background:var(--card);border:1px solid var(--border);border-radius:14px;
+  overflow:hidden;position:relative;min-height:300px;
+}
+#weather-canvas{position:absolute;inset:0;width:100%;height:100%;}
+.temp-hero-content{
+  position:relative;z-index:2;padding:1.25rem 1.5rem;
+  display:grid;grid-template-columns:1fr auto;gap:1rem;align-items:start;
+}
+.th-left{}
+.th-location{margin-bottom:0.6rem;}
+.th-city{font-size:1.6rem;font-weight:700;line-height:1.1;letter-spacing:-0.5px;}
+.th-state{color:var(--muted2);font-size:0.8rem;margin-top:2px;}
+
+/* BIG ANIMATED TEMPERATURE */
+.th-temp-wrap{display:flex;align-items:flex-start;gap:4px;margin:0.5rem 0;}
+.th-temp{
+  font-size:6rem;font-weight:300;font-family:'JetBrains Mono',monospace;
+  line-height:1;letter-spacing:-4px;
+  background:linear-gradient(135deg,var(--temp-color,#38bdf8),var(--temp-color2,#818cf8));
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;
+  background-clip:text;
+  animation:tempPulse 3s ease-in-out infinite;
+  transition:all 0.8s ease;
+}
+@keyframes tempPulse{
+  0%,100%{filter:brightness(1);}
+  50%{filter:brightness(1.2);}
+}
+.th-deg{font-size:2rem;font-weight:400;font-family:'JetBrains Mono',monospace;color:var(--muted2);margin-top:12px;}
+.th-condition{font-size:1.1rem;font-weight:600;margin-bottom:4px;}
+.th-sub{font-size:0.8rem;color:var(--muted2);}
+
+/* FEELS LIKE CHIP */
+.feels-chip{
+  display:inline-flex;align-items:center;gap:5px;
+  background:rgba(255,255,255,0.05);border:1px solid var(--border);
+  border-radius:8px;padding:5px 10px;font-size:0.78rem;color:var(--muted2);
+  margin-top:8px;
+}
+.feels-temp{color:var(--text);font-weight:600;font-family:'JetBrains Mono',monospace;}
+
+/* ALERT BADGE */
+.alert-badge{
+  display:inline-flex;align-items:center;gap:5px;
+  padding:5px 11px;border-radius:999px;font-size:0.72rem;
+  font-weight:700;text-transform:uppercase;letter-spacing:0.05em;
+  margin-bottom:10px;
+}
+.ab-red{background:rgba(248,113,113,0.15);border:1px solid rgba(248,113,113,0.3);color:var(--danger);}
+.ab-yellow{background:rgba(251,191,36,0.13);border:1px solid rgba(251,191,36,0.3);color:var(--warn);}
+.ab-green{background:rgba(52,211,153,0.1);border:1px solid rgba(52,211,153,0.22);color:var(--success);}
+
+.th-stats{display:flex;flex-direction:column;gap:6px;margin-top:6px;}
+.stat-row{display:flex;align-items:center;gap:6px;font-size:0.78rem;color:var(--muted2);}
+.stat-val{color:var(--text);font-weight:600;}
+
+/* TEMPERATURE METER BAR */
+.temp-meter{
+  background:var(--card);border:1px solid var(--border);border-radius:14px;padding:1.1rem 1.25rem;
+}
+.meter-title{font-size:0.72rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.07em;margin-bottom:1rem;}
+.therm-wrap{display:flex;align-items:center;gap:16px;}
+.therm{position:relative;width:28px;height:180px;flex-shrink:0;}
+.therm-tube{
+  position:absolute;left:50%;transform:translateX(-50%);
+  width:14px;bottom:12px;top:0;
+  background:rgba(255,255,255,0.05);border:1px solid var(--border2);
+  border-radius:7px 7px 0 0;overflow:hidden;
+}
+.therm-fill{
+  position:absolute;bottom:0;left:0;right:0;
+  border-radius:0;
+  transition:height 1.2s cubic-bezier(0.34,1.56,0.64,1), background 0.8s;
+}
+.therm-bulb{
+  position:absolute;bottom:0;left:50%;transform:translateX(-50%);
+  width:24px;height:24px;border-radius:50%;
+  border:2px solid var(--border2);
+  transition:background 0.8s;
+}
+.therm-scale{display:flex;flex-direction:column;justify-content:space-between;height:180px;padding:0 4px;}
+.therm-tick{font-size:0.65rem;color:var(--muted);font-family:'JetBrains Mono',monospace;white-space:nowrap;}
+
+.temp-stats-grid{flex:1;display:grid;grid-template-columns:1fr 1fr;gap:8px;}
+.ts-card{
+  background:rgba(255,255,255,0.03);border:1px solid var(--border);
+  border-radius:10px;padding:10px 12px;
+}
+.ts-label{font-size:0.68rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:4px;}
+.ts-val{font-size:1.3rem;font-weight:700;font-family:'JetBrains Mono',monospace;}
+.ts-unit{font-size:0.7rem;color:var(--muted);font-family:inherit;font-weight:400;}
+
+/* METRICS ROW */
+.metrics-row{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;}
+@media(max-width:700px){.metrics-row{grid-template-columns:repeat(2,1fr);}}
+.metric-card{
+  background:var(--card);border:1px solid var(--border);border-radius:12px;padding:11px 13px;
+}
+.metric-label{font-size:0.68rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:5px;}
+.metric-value{font-size:1.25rem;font-weight:700;font-family:'JetBrains Mono',monospace;}
+.metric-unit{font-size:0.68rem;color:var(--muted);font-family:inherit;font-weight:400;}
+.aqi-bar{height:4px;border-radius:4px;margin-top:5px;}
+.aqi-good{background:linear-gradient(90deg,#34d399,#6ee7b7);}
+.aqi-moderate{background:linear-gradient(90deg,#fbbf24,#fde68a);}
+.aqi-unhealthy{background:linear-gradient(90deg,#f87171,#fca5a5);}
+.aqi-haz{background:linear-gradient(90deg,#a855f7,#f87171);}
+
+/* HOURLY */
+.forecast-card{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:1.1rem 1.25rem;}
+.section-title{font-size:0.72rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.07em;margin-bottom:0.9rem;}
+.hourly-scroll{display:flex;gap:8px;overflow-x:auto;padding-bottom:5px;}
+.hourly-scroll::-webkit-scrollbar{height:3px;}
+.hourly-scroll::-webkit-scrollbar-thumb{background:var(--border2);border-radius:3px;}
+.hour-item{
+  flex-shrink:0;background:rgba(255,255,255,0.025);border:1px solid var(--border);
+  border-radius:9px;padding:9px 12px;text-align:center;min-width:68px;
+  transition:background .15s,border-color .15s;cursor:default;
+}
+.hour-item:hover{background:rgba(56,189,248,0.07);border-color:var(--border2);}
+.hour-time{font-size:0.68rem;color:var(--muted);}
+.hour-icon{font-size:1.2rem;margin:4px 0;}
+.hour-temp{font-size:0.9rem;font-weight:700;font-family:'JetBrains Mono',monospace;}
+.hour-rain{font-size:0.62rem;color:var(--rain);}
+
+/* AQI DETAIL */
+.aqi-detail-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:8px;}
+.poll-item{background:rgba(255,255,255,0.025);border:1px solid var(--border);border-radius:9px;padding:9px;text-align:center;}
+.poll-name{font-size:0.65rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.06em;}
+.poll-val{font-size:1rem;font-weight:700;font-family:'JetBrains Mono',monospace;margin-top:3px;}
+
+/* INDIA MAP */
+.map-card{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:1.1rem 1.25rem;}
+#map-canvas{width:100%;border-radius:9px;display:block;}
+
+/* LOADING */
+.loading{display:flex;align-items:center;justify-content:center;gap:8px;padding:2.5rem;color:var(--muted);font-size:0.85rem;}
+.spinner{width:18px;height:18px;border:2px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .7s linear infinite;}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+.last-up{font-size:0.7rem;color:var(--muted);text-align:right;margin-top:6px;}
+
+/* TEMP COLOR CLASSES (applied dynamically) */
+.tc-freezing{--temp-color:#60a5fa;--temp-color2:#818cf8;}
+.tc-cold{--temp-color:#93c5fd;--temp-color2:#6ee7b7;}
+.tc-cool{--temp-color:#34d399;--temp-color2:#6ee7b7;}
+.tc-mild{--temp-color:#fbbf24;--temp-color2:#fde68a;}
+.tc-warm{--temp-color:#f97316;--temp-color2:#fbbf24;}
+.tc-hot{--temp-color:#f87171;--temp-color2:#fb923c;}
+.tc-scorching{--temp-color:#ef4444;--temp-color2:#dc2626;}
+
+/* TEMP FLASH ANIMATION ON UPDATE */
+@keyframes tempUpdate{
+  0%{transform:scale(1);}
+  30%{transform:scale(1.06);}
+  100%{transform:scale(1);}
+}
+.temp-updated{animation:tempUpdate 0.5s ease-out;}
+</style>
+</head>
+<body>
+<canvas id="stars-canvas"></canvas>
+<div class="app">
+
+<!-- HEADER -->
+<header>
+  <div class="logo">
+    <div class="logo-icon">🌦</div>
+    <div>
+      <h1>India<span>Weather</span> Alert</h1>
+      <div class="logo-sub">Real-Time Live Weather · Cities, Towns &amp; Villages</div>
+    </div>
+  </div>
+  <div class="header-right">
+    <div class="live-badge"><div class="live-dot"></div>Live</div>
+    <div id="clock">--:--:--</div>
+  </div>
+</header>
+
+<!-- CONTROLS -->
+<div class="controls">
+  <div class="search-wrap">
+    <span class="s-icon">🔍</span>
+    <input type="text" id="search-input" placeholder="Search city, town or village…" autocomplete="off">
+  </div>
+  <select id="state-filter"><option value="">All States &amp; UTs</option></select>
+  <select id="type-filter">
+    <option value="">All Types</option>
+    <option value="metro">🏙 Metro Cities</option>
+    <option value="city">🏢 Cities</option>
+    <option value="town">🏘 Towns</option>
+    <option value="village">🌾 Villages</option>
+  </select>
+  <select id="alert-filter">
+    <option value="">All Alerts</option>
+    <option value="red">🔴 Red Alert</option>
+    <option value="yellow">🟡 Yellow</option>
+    <option value="green">🟢 Normal</option>
+  </select>
+</div>
+
+<!-- TICKER -->
+<div class="ticker-wrap">
+  <span class="ticker-label">⚠ Alerts</span>
+  <div class="ticker-track">
+    <div class="ticker-inner" id="ticker">
+      <span id="t1">Loading weather alerts for India…</span>
+      <span id="t2"></span>
+    </div>
+  </div>
+</div>
+
+<!-- MAIN GRID -->
+<div class="main-grid">
+
+  <!-- LEFT: CITY LIST -->
+  <div class="city-list">
+    <div class="cl-header">
+      <span class="cl-title">📍 Locations</span>
+      <span id="city-count">Loading…</span>
+    </div>
+    <div class="city-scroll" id="city-scroll">
+      <div class="loading"><div class="spinner"></div>Fetching live data…</div>
+    </div>
+  </div>
+
+  <!-- RIGHT: DETAIL -->
+  <div class="detail-panel">
+
+    <!-- BIG TEMP HERO -->
+    <div class="temp-hero" id="temp-hero">
+      <canvas id="weather-canvas"></canvas>
+      <div class="temp-hero-content">
+        <div class="th-left">
+          <div class="th-location">
+            <div class="th-city" id="h-city">Select a location</div>
+            <div class="th-state" id="h-state">Choose from the list →</div>
+          </div>
+          <!-- GIANT ANIMATED TEMPERATURE -->
+          <div class="th-temp-wrap">
+            <div class="th-temp tc-mild" id="h-temp">--</div>
+            <div class="th-deg">°C</div>
+          </div>
+          <div class="th-condition" id="h-cond">—</div>
+          <div class="th-sub" id="h-desc"></div>
+          <div class="feels-chip">🌡 Feels like <span class="feels-temp" id="h-feels">--°C</span></div>
+        </div>
+        <div>
+          <div class="alert-badge ab-green" id="h-alert">● Clear</div>
+          <div class="th-stats">
+            <div class="stat-row">💧 <span class="stat-val" id="h-hum">--%</span> humidity</div>
+            <div class="stat-row">💨 <span class="stat-val" id="h-wind">-- km/h</span> wind</div>
+            <div class="stat-row">⬇ <span class="stat-val" id="h-pres">-- hPa</span> pressure</div>
+            <div class="stat-row">👁 <span class="stat-val" id="h-vis">-- km</span> visibility</div>
+            <div class="stat-row">🌧 <span class="stat-val" id="h-precip">-- mm</span> precip</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- TEMPERATURE METER -->
+    <div class="temp-meter">
+      <div class="meter-title">🌡 Temperature Meter &amp; Details</div>
+      <div class="therm-wrap">
+        <!-- THERMOMETER -->
+        <div class="therm">
+          <div class="therm-tube">
+            <div class="therm-fill" id="therm-fill"></div>
+          </div>
+          <div class="therm-bulb" id="therm-bulb"></div>
+        </div>
+        <!-- SCALE -->
+        <div class="therm-scale">
+          <div class="therm-tick">50°</div>
+          <div class="therm-tick">40°</div>
+          <div class="therm-tick">30°</div>
+          <div class="therm-tick">20°</div>
+          <div class="therm-tick">10°</div>
+          <div class="therm-tick">0°</div>
+          <div class="therm-tick">-10°</div>
+        </div>
+        <!-- STATS GRID -->
+        <div class="temp-stats-grid">
+          <div class="ts-card">
+            <div class="ts-label">Current</div>
+            <div class="ts-val" id="ts-cur" style="color:var(--accent)">--<span class="ts-unit">°C</span></div>
+          </div>
+          <div class="ts-card">
+            <div class="ts-label">Feels Like</div>
+            <div class="ts-val" id="ts-fl">--<span class="ts-unit">°C</span></div>
+          </div>
+          <div class="ts-card">
+            <div class="ts-label">Today Max</div>
+            <div class="ts-val" id="ts-max" style="color:var(--danger)">--<span class="ts-unit">°C</span></div>
+          </div>
+          <div class="ts-card">
+            <div class="ts-label">Today Min</div>
+            <div class="ts-val" id="ts-min" style="color:var(--rain)">--<span class="ts-unit">°C</span></div>
+          </div>
+          <div class="ts-card" style="grid-column:1/-1">
+            <div class="ts-label">Temperature Range</div>
+            <div id="temp-range-bar" style="height:10px;border-radius:5px;margin-top:6px;background:linear-gradient(90deg,#60a5fa,#34d399,#fbbf24,#f87171);position:relative;">
+              <div id="temp-range-marker" style="position:absolute;top:-4px;width:4px;height:18px;background:#fff;border-radius:2px;transition:left 0.8s;left:50%;"></div>
+            </div>
+            <div style="display:flex;justify-content:space-between;font-size:0.62rem;color:var(--muted);margin-top:3px;">
+              <span>−10°C</span><span>0°</span><span>20°</span><span>35°</span><span>50°</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- METRICS ROW -->
+    <div class="metrics-row">
+      <div class="metric-card">
+        <div class="metric-label">💧 Humidity</div>
+        <div class="metric-value" id="m-hum">--<span class="metric-unit">%</span></div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-label">🌫 AQI</div>
+        <div class="metric-value" id="m-aqi">--</div>
+        <div class="aqi-bar" id="aqi-bar"></div>
+        <div style="font-size:0.68rem;margin-top:3px" id="aqi-label"></div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-label">🌧 Precip</div>
+        <div class="metric-value" id="m-precip">--<span class="metric-unit">mm</span></div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-label">☁ Cloud</div>
+        <div class="metric-value" id="m-cloud">--<span class="metric-unit">%</span></div>
+      </div>
+    </div>
+
+    <!-- 24H FORECAST -->
+    <div class="forecast-card">
+      <div class="section-title">🕐 24-Hour Forecast with Temperature</div>
+      <div class="hourly-scroll" id="hourly-scroll">
+        <div class="loading"><div class="spinner"></div>Loading…</div>
+      </div>
+    </div>
+
+    <!-- AQI -->
+    <div class="forecast-card">
+      <div class="section-title">🫧 Air Quality Index — Pollutants</div>
+      <div id="aqi-detail"><div class="loading"><div class="spinner"></div>Loading…</div></div>
+    </div>
+
+    <!-- MAP -->
+    <div class="map-card">
+      <div class="section-title">🗺 India Weather Map — Live Temperature Dots</div>
+      <canvas id="map-canvas" height="400"></canvas>
+    </div>
+
+  </div>
+</div>
+<div class="last-up" id="last-up">Last updated: --</div>
+</div>
+
+<script>
+// ────────────────────────────────────────────────────────────────────────────
+// LOCATION DATABASE — Cities, Towns & Villages
+// ────────────────────────────────────────────────────────────────────────────
+const LOCATIONS = [
+  // ── UP VILLAGES & TOWNS (Kishni, Etawah area focus) ──
+  {name:"Kishni",state:"Uttar Pradesh",lat:26.672,lon:79.062,type:"village"},
+  {name:"Etawah",state:"Uttar Pradesh",lat:26.775,lon:79.022,type:"city"},
+  {name:"Bharthana",state:"Uttar Pradesh",lat:26.843,lon:79.245,type:"town"},
+  {name:"Auraiya",state:"Uttar Pradesh",lat:26.469,lon:79.513,type:"town"},
+  {name:"Bidhuna",state:"Uttar Pradesh",lat:26.797,lon:79.505,type:"town"},
+  {name:"Saifai",state:"Uttar Pradesh",lat:26.744,lon:79.068,type:"village"},
+  {name:"Jaswantnagar",state:"Uttar Pradesh",lat:26.900,lon:79.179,type:"town"},
+  {name:"Chirgaon",state:"Uttar Pradesh",lat:26.619,lon:78.963,type:"village"},
+  {name:"Bakewar",state:"Uttar Pradesh",lat:26.629,lon:79.396,type:"village"},
+  {name:"Ekdil",state:"Uttar Pradesh",lat:26.701,lon:79.132,type:"village"},
+  {name:"Phaphund",state:"Uttar Pradesh",lat:26.601,lon:79.461,type:"town"},
+  {name:"Nagla Enclave",state:"Uttar Pradesh",lat:26.780,lon:79.050,type:"village"},
+  {name:"Parichha",state:"Uttar Pradesh",lat:25.475,lon:78.748,type:"town"},
+  {name:"Jalaun",state:"Uttar Pradesh",lat:26.140,lon:79.338,type:"town"},
+  {name:"Orai",state:"Uttar Pradesh",lat:25.980,lon:79.449,type:"city"},
+  {name:"Konch",state:"Uttar Pradesh",lat:26.002,lon:79.121,type:"town"},
+  {name:"Rath",state:"Uttar Pradesh",lat:25.591,lon:79.564,type:"town"},
+  {name:"Hamirpur",state:"Uttar Pradesh",lat:25.957,lon:80.151,type:"city"},
+  {name:"Banda",state:"Uttar Pradesh",lat:25.480,lon:80.335,type:"city"},
+  {name:"Mahoba",state:"Uttar Pradesh",lat:25.290,lon:79.873,type:"city"},
+  {name:"Chhatarpur",state:"Madhya Pradesh",lat:24.917,lon:79.583,type:"city"},
+  {name:"Tikamgarh",state:"Madhya Pradesh",lat:24.742,lon:78.831,type:"city"},
+  {name:"Talbehat",state:"Uttar Pradesh",lat:25.032,lon:78.845,type:"town"},
+  {name:"Mau (UP)",state:"Uttar Pradesh",lat:26.774,lon:78.687,type:"town"},
+  {name:"Marhani",state:"Uttar Pradesh",lat:26.752,lon:79.143,type:"village"},
+  {name:"Sarsai Nawar",state:"Uttar Pradesh",lat:26.810,lon:79.003,type:"village"},
+  {name:"Chakarnagar",state:"Uttar Pradesh",lat:26.530,lon:79.000,type:"village"},
+
+  // ── UTTAR PRADESH MAJOR ──
+  {name:"Agra",state:"Uttar Pradesh",lat:27.176,lon:78.008,type:"metro"},
+  {name:"Lucknow",state:"Uttar Pradesh",lat:26.846,lon:80.946,type:"metro"},
+  {name:"Kanpur",state:"Uttar Pradesh",lat:26.449,lon:80.332,type:"metro"},
+  {name:"Varanasi",state:"Uttar Pradesh",lat:25.320,lon:82.987,type:"city"},
+  {name:"Allahabad",state:"Uttar Pradesh",lat:25.435,lon:81.846,type:"city"},
+  {name:"Meerut",state:"Uttar Pradesh",lat:28.985,lon:77.706,type:"city"},
+  {name:"Mathura",state:"Uttar Pradesh",lat:27.492,lon:77.673,type:"city"},
+  {name:"Vrindavan",state:"Uttar Pradesh",lat:27.580,lon:77.696,type:"town"},
+  {name:"Firozabad",state:"Uttar Pradesh",lat:27.152,lon:78.395,type:"city"},
+  {name:"Mainpuri",state:"Uttar Pradesh",lat:27.232,lon:79.026,type:"city"},
+  {name:"Aligarh",state:"Uttar Pradesh",lat:27.881,lon:78.080,type:"city"},
+  {name:"Bareilly",state:"Uttar Pradesh",lat:28.346,lon:79.415,type:"city"},
+  {name:"Shahjahanpur",state:"Uttar Pradesh",lat:27.882,lon:79.908,type:"city"},
+  {name:"Gorakhpur",state:"Uttar Pradesh",lat:26.760,lon:83.373,type:"city"},
+  {name:"Moradabad",state:"Uttar Pradesh",lat:28.838,lon:78.777,type:"city"},
+  {name:"Saharanpur",state:"Uttar Pradesh",lat:29.964,lon:77.546,type:"city"},
+  {name:"Noida",state:"Uttar Pradesh",lat:28.535,lon:77.391,type:"city"},
+  {name:"Ghaziabad",state:"Uttar Pradesh",lat:28.667,lon:77.433,type:"city"},
+  {name:"Muzaffarnagar",state:"Uttar Pradesh",lat:29.473,lon:77.704,type:"city"},
+  {name:"Sitapur",state:"Uttar Pradesh",lat:27.568,lon:80.682,type:"city"},
+
+  // ── METRO CITIES ──
+  {name:"Delhi",state:"Delhi",lat:28.704,lon:77.102,type:"metro"},
+  {name:"Mumbai",state:"Maharashtra",lat:19.076,lon:72.877,type:"metro"},
+  {name:"Bangalore",state:"Karnataka",lat:12.972,lon:77.594,type:"metro"},
+  {name:"Kolkata",state:"West Bengal",lat:22.572,lon:88.363,type:"metro"},
+  {name:"Chennai",state:"Tamil Nadu",lat:13.083,lon:80.270,type:"metro"},
+  {name:"Hyderabad",state:"Telangana",lat:17.385,lon:78.487,type:"metro"},
+  {name:"Ahmedabad",state:"Gujarat",lat:23.023,lon:72.572,type:"metro"},
+  {name:"Pune",state:"Maharashtra",lat:18.520,lon:73.857,type:"metro"},
+  {name:"Jaipur",state:"Rajasthan",lat:26.912,lon:75.787,type:"metro"},
+  {name:"Surat",state:"Gujarat",lat:21.170,lon:72.831,type:"city"},
+  {name:"Nagpur",state:"Maharashtra",lat:21.146,lon:79.082,type:"city"},
+  {name:"Indore",state:"Madhya Pradesh",lat:22.719,lon:75.857,type:"city"},
+  {name:"Bhopal",state:"Madhya Pradesh",lat:23.259,lon:77.412,type:"city"},
+  {name:"Visakhapatnam",state:"Andhra Pradesh",lat:17.686,lon:83.218,type:"city"},
+  {name:"Patna",state:"Bihar",lat:25.594,lon:85.137,type:"city"},
+  {name:"Vadodara",state:"Gujarat",lat:22.307,lon:73.181,type:"city"},
+  {name:"Ludhiana",state:"Punjab",lat:30.901,lon:75.857,type:"city"},
+  {name:"Nashik",state:"Maharashtra",lat:19.998,lon:73.790,type:"city"},
+  {name:"Rajkot",state:"Gujarat",lat:22.302,lon:70.800,type:"city"},
+
+  // ── RAJASTHAN VILLAGES ──
+  {name:"Jodhpur",state:"Rajasthan",lat:26.289,lon:73.024,type:"city"},
+  {name:"Barmer",state:"Rajasthan",lat:25.745,lon:71.391,type:"city"},
+  {name:"Jaisalmer",state:"Rajasthan",lat:26.909,lon:70.915,type:"city"},
+  {name:"Bikaner",state:"Rajasthan",lat:28.022,lon:73.312,type:"city"},
+  {name:"Ajmer",state:"Rajasthan",lat:26.455,lon:74.639,type:"city"},
+  {name:"Alwar",state:"Rajasthan",lat:27.553,lon:76.608,type:"city"},
+  {name:"Osian",state:"Rajasthan",lat:26.730,lon:72.919,type:"village"},
+  {name:"Khimsar",state:"Rajasthan",lat:27.128,lon:72.780,type:"village"},
+  {name:"Rohet",state:"Rajasthan",lat:25.865,lon:72.960,type:"village"},
+
+  // ── BIHAR VILLAGES ──
+  {name:"Gaya",state:"Bihar",lat:24.797,lon:85.012,type:"city"},
+  {name:"Bhagalpur",state:"Bihar",lat:25.245,lon:86.972,type:"city"},
+  {name:"Muzaffarpur",state:"Bihar",lat:26.121,lon:85.390,type:"city"},
+  {name:"Darbhanga",state:"Bihar",lat:26.152,lon:85.897,type:"city"},
+  {name:"Siwan",state:"Bihar",lat:26.220,lon:84.360,type:"city"},
+  {name:"Motihari",state:"Bihar",lat:26.657,lon:84.916,type:"town"},
+  {name:"Hajipur",state:"Bihar",lat:25.688,lon:85.208,type:"town"},
+  {name:"Sonepur",state:"Bihar",lat:25.710,lon:85.176,type:"village"},
+  {name:"Arrah",state:"Bihar",lat:25.556,lon:84.661,type:"city"},
+
+  // ── MADHYA PRADESH ──
+  {name:"Gwalior",state:"Madhya Pradesh",lat:26.219,lon:78.182,type:"city"},
+  {name:"Jabalpur",state:"Madhya Pradesh",lat:23.167,lon:79.934,type:"city"},
+  {name:"Ujjain",state:"Madhya Pradesh",lat:23.182,lon:75.767,type:"city"},
+  {name:"Rewa",state:"Madhya Pradesh",lat:24.530,lon:81.294,type:"city"},
+  {name:"Sagar",state:"Madhya Pradesh",lat:23.838,lon:78.739,type:"city"},
+  {name:"Orchha",state:"Madhya Pradesh",lat:25.352,lon:78.641,type:"village"},
+  {name:"Khajuraho",state:"Madhya Pradesh",lat:24.848,lon:79.921,type:"town"},
+
+  // ── SOUTH INDIA ──
+  {name:"Coimbatore",state:"Tamil Nadu",lat:11.002,lon:76.966,type:"city"},
+  {name:"Madurai",state:"Tamil Nadu",lat:9.925,lon:78.119,type:"city"},
+  {name:"Trichy",state:"Tamil Nadu",lat:10.806,lon:78.687,type:"city"},
+  {name:"Salem",state:"Tamil Nadu",lat:11.664,lon:78.146,type:"city"},
+  {name:"Tirunelveli",state:"Tamil Nadu",lat:8.727,lon:77.696,type:"city"},
+  {name:"Kochi",state:"Kerala",lat:9.931,lon:76.267,type:"city"},
+  {name:"Thiruvananthapuram",state:"Kerala",lat:8.524,lon:76.936,type:"city"},
+  {name:"Kozhikode",state:"Kerala",lat:11.258,lon:75.780,type:"city"},
+  {name:"Thrissur",state:"Kerala",lat:10.526,lon:76.214,type:"city"},
+  {name:"Munnar",state:"Kerala",lat:10.089,lon:77.059,type:"village"},
+  {name:"Wayanad",state:"Kerala",lat:11.605,lon:76.083,type:"town"},
+  {name:"Vijayawada",state:"Andhra Pradesh",lat:16.506,lon:80.648,type:"city"},
+  {name:"Tirupati",state:"Andhra Pradesh",lat:13.628,lon:79.418,type:"city"},
+  {name:"Kurnool",state:"Andhra Pradesh",lat:15.826,lon:78.037,type:"city"},
+  {name:"Mysore",state:"Karnataka",lat:12.296,lon:76.639,type:"city"},
+  {name:"Hubli",state:"Karnataka",lat:15.363,lon:75.124,type:"city"},
+  {name:"Mangaluru",state:"Karnataka",lat:12.914,lon:74.856,type:"city"},
+  {name:"Hampi",state:"Karnataka",lat:15.335,lon:76.462,type:"village"},
+  {name:"Coorg",state:"Karnataka",lat:12.336,lon:75.802,type:"town"},
+
+  // ── GUJARAT TOWNS/VILLAGES ──
+  {name:"Junagadh",state:"Gujarat",lat:21.522,lon:70.457,type:"city"},
+  {name:"Bhavnagar",state:"Gujarat",lat:21.767,lon:72.150,type:"city"},
+  {name:"Anand",state:"Gujarat",lat:22.556,lon:72.954,type:"city"},
+  {name:"Nadiad",state:"Gujarat",lat:22.693,lon:72.862,type:"city"},
+  {name:"Amreli",state:"Gujarat",lat:21.604,lon:71.220,type:"city"},
+  {name:"Dwarka",state:"Gujarat",lat:22.239,lon:68.967,type:"town"},
+  {name:"Somnath",state:"Gujarat",lat:20.888,lon:70.401,type:"town"},
+
+  // ── HILL STATIONS ──
+  {name:"Shimla",state:"Himachal Pradesh",lat:31.104,lon:77.173,type:"city"},
+  {name:"Manali",state:"Himachal Pradesh",lat:32.239,lon:77.189,type:"town"},
+  {name:"Dharamsala",state:"Himachal Pradesh",lat:32.219,lon:76.324,type:"town"},
+  {name:"Dalhousie",state:"Himachal Pradesh",lat:32.538,lon:75.974,type:"town"},
+  {name:"Kasauli",state:"Himachal Pradesh",lat:30.904,lon:76.965,type:"village"},
+  {name:"Dehradun",state:"Uttarakhand",lat:30.316,lon:78.032,type:"city"},
+  {name:"Mussoorie",state:"Uttarakhand",lat:30.458,lon:78.072,type:"town"},
+  {name:"Nainital",state:"Uttarakhand",lat:29.381,lon:79.463,type:"town"},
+  {name:"Rishikesh",state:"Uttarakhand",lat:30.085,lon:78.268,type:"town"},
+  {name:"Haridwar",state:"Uttarakhand",lat:29.945,lon:78.164,type:"city"},
+  {name:"Darjeeling",state:"West Bengal",lat:27.041,lon:88.263,type:"city"},
+  {name:"Gangtok",state:"Sikkim",lat:27.329,lon:88.612,type:"city"},
+  {name:"Leh",state:"Ladakh",lat:34.167,lon:77.583,type:"city"},
+  {name:"Kargil",state:"Ladakh",lat:34.559,lon:76.126,type:"town"},
+  {name:"Srinagar",state:"J&K",lat:34.083,lon:74.797,type:"city"},
+  {name:"Pahalgam",state:"J&K",lat:34.017,lon:75.315,type:"village"},
+  {name:"Gulmarg",state:"J&K",lat:34.048,lon:74.381,type:"village"},
+
+  // ── NORTHEAST ──
+  {name:"Guwahati",state:"Assam",lat:26.144,lon:91.736,type:"city"},
+  {name:"Silchar",state:"Assam",lat:24.833,lon:92.783,type:"city"},
+  {name:"Tezpur",state:"Assam",lat:26.633,lon:92.800,type:"city"},
+  {name:"Jorhat",state:"Assam",lat:26.750,lon:94.217,type:"city"},
+  {name:"Shillong",state:"Meghalaya",lat:25.578,lon:91.893,type:"city"},
+  {name:"Cherrapunji",state:"Meghalaya",lat:25.268,lon:91.733,type:"village"},
+  {name:"Aizawl",state:"Mizoram",lat:23.727,lon:92.717,type:"city"},
+  {name:"Imphal",state:"Manipur",lat:24.817,lon:93.936,type:"city"},
+  {name:"Kohima",state:"Nagaland",lat:25.674,lon:94.111,type:"city"},
+  {name:"Agartala",state:"Tripura",lat:23.831,lon:91.286,type:"city"},
+  {name:"Itanagar",state:"Arunachal Pradesh",lat:27.084,lon:93.606,type:"city"},
+  {name:"Ziro",state:"Arunachal Pradesh",lat:27.533,lon:93.817,type:"village"},
+
+  // ── ODISHA ──
+  {name:"Bhubaneswar",state:"Odisha",lat:20.296,lon:85.824,type:"city"},
+  {name:"Cuttack",state:"Odisha",lat:20.462,lon:85.883,type:"city"},
+  {name:"Puri",state:"Odisha",lat:19.812,lon:85.831,type:"city"},
+  {name:"Konark",state:"Odisha",lat:19.888,lon:86.122,type:"village"},
+  {name:"Rourkela",state:"Odisha",lat:22.260,lon:84.853,type:"city"},
+
+  // ── JHARKHAND/CHHATTISGARH ──
+  {name:"Ranchi",state:"Jharkhand",lat:23.344,lon:85.310,type:"city"},
+  {name:"Jamshedpur",state:"Jharkhand",lat:22.805,lon:86.185,type:"city"},
+  {name:"Dhanbad",state:"Jharkhand",lat:23.800,lon:86.433,type:"city"},
+  {name:"Raipur",state:"Chhattisgarh",lat:21.251,lon:81.630,type:"city"},
+  {name:"Bilaspur",state:"Chhattisgarh",lat:22.090,lon:82.148,type:"city"},
+  {name:"Jagdalpur",state:"Chhattisgarh",lat:19.074,lon:82.034,type:"city"},
+
+  // ── PUNJAB/HARYANA ──
+  {name:"Amritsar",state:"Punjab",lat:31.634,lon:74.873,type:"city"},
+  {name:"Chandigarh",state:"Chandigarh",lat:30.733,lon:76.779,type:"city"},
+  {name:"Patiala",state:"Punjab",lat:30.339,lon:76.386,type:"city"},
+  {name:"Jalandhar",state:"Punjab",lat:31.326,lon:75.576,type:"city"},
+  {name:"Gurugram",state:"Haryana",lat:28.459,lon:77.026,type:"city"},
+  {name:"Faridabad",state:"Haryana",lat:28.408,lon:77.318,type:"city"},
+  {name:"Karnal",state:"Haryana",lat:29.686,lon:76.990,type:"city"},
+  {name:"Panipat",state:"Haryana",lat:29.391,lon:76.968,type:"city"},
+
+  // ── WEST BENGAL ──
+  {name:"Siliguri",state:"West Bengal",lat:26.725,lon:88.430,type:"city"},
+  {name:"Asansol",state:"West Bengal",lat:23.684,lon:86.952,type:"city"},
+  {name:"Durgapur",state:"West Bengal",lat:23.480,lon:87.320,type:"city"},
+  {name:"Shantiniketan",state:"West Bengal",lat:23.683,lon:87.683,type:"town"},
+  {name:"Sundarbans",state:"West Bengal",lat:21.949,lon:89.179,type:"village"},
+
+  // ── COASTAL AREAS ──
+  {name:"Panaji",state:"Goa",lat:15.499,lon:73.824,type:"city"},
+  {name:"Margao",state:"Goa",lat:15.273,lon:73.958,type:"city"},
+  {name:"Calangute",state:"Goa",lat:15.543,lon:73.752,type:"village"},
+  {name:"Port Blair",state:"Andaman",lat:11.667,lon:92.750,type:"city"},
+  {name:"Kavaratti",state:"Lakshadweep",lat:10.567,lon:72.633,type:"town"},
+  {name:"Puducherry",state:"Puducherry",lat:11.933,lon:79.833,type:"city"},
+
+  // ── MAHARASHTRA TOWNS ──
+  {name:"Aurangabad",state:"Maharashtra",lat:19.877,lon:75.341,type:"city"},
+  {name:"Solapur",state:"Maharashtra",lat:17.686,lon:75.900,type:"city"},
+  {name:"Kolhapur",state:"Maharashtra",lat:16.705,lon:74.244,type:"city"},
+  {name:"Satara",state:"Maharashtra",lat:17.686,lon:74.000,type:"city"},
+  {name:"Alibag",state:"Maharashtra",lat:18.640,lon:72.872,type:"town"},
+  {name:"Mahabaleshwar",state:"Maharashtra",lat:17.924,lon:73.658,type:"village"},
+  {name:"Lonavala",state:"Maharashtra",lat:18.750,lon:73.406,type:"town"},
+  {name:"Matheran",state:"Maharashtra",lat:18.982,lon:73.264,type:"village"},
+
+  // ── JAMMU ──
+  {name:"Jammu",state:"J&K",lat:32.733,lon:74.866,type:"city"},
+  {name:"Katra",state:"J&K",lat:32.991,lon:74.930,type:"town"},
+];
+
+// ─── WMO CODE MAP ─────────────────────────────────────────────────────────────
+function wmoInfo(c){
+  const m={
+    0:{l:"Clear Sky",i:"☀️",t:"clear"},1:{l:"Mainly Clear",i:"🌤️",t:"clear"},
+    2:{l:"Partly Cloudy",i:"⛅",t:"cloud"},3:{l:"Overcast",i:"☁️",t:"cloud"},
+    45:{l:"Foggy",i:"🌫️",t:"haze"},48:{l:"Freezing Fog",i:"🌫️",t:"haze"},
+    51:{l:"Light Drizzle",i:"🌦️",t:"rain"},53:{l:"Moderate Drizzle",i:"🌦️",t:"rain"},
+    55:{l:"Dense Drizzle",i:"🌧️",t:"rain"},61:{l:"Slight Rain",i:"🌧️",t:"rain"},
+    63:{l:"Moderate Rain",i:"🌧️",t:"rain"},65:{l:"Heavy Rain",i:"🌧️",t:"rain"},
+    71:{l:"Slight Snow",i:"🌨️",t:"snow"},73:{l:"Moderate Snow",i:"❄️",t:"snow"},
+    75:{l:"Heavy Snow",i:"❄️",t:"snow"},77:{l:"Snow Grains",i:"🌨️",t:"snow"},
+    80:{l:"Slight Showers",i:"🌦️",t:"rain"},81:{l:"Moderate Showers",i:"🌧️",t:"rain"},
+    82:{l:"Violent Showers",i:"🌧️",t:"rain"},85:{l:"Snow Showers",i:"🌨️",t:"snow"},
+    86:{l:"Heavy Snow Showers",i:"❄️",t:"snow"},95:{l:"Thunderstorm",i:"⛈️",t:"thunder"},
+    96:{l:"Thunderstorm+Hail",i:"⛈️",t:"thunder"},99:{l:"Heavy Thunderstorm",i:"⛈️",t:"thunder"},
+  };
+  return m[c]||{l:"Weather Data",i:"🌡️",t:"clear"};
+}
+
+function alertLevel(t,precip,temp){
+  if(t==="thunder") return "red";
+  if(t==="rain"&&precip>10) return "red";
+  if(t==="snow"&&temp<0) return "red";
+  if(t==="rain"||precip>2||temp>42||temp<0) return "yellow";
+  if(t==="haze") return "yellow";
+  return "green";
+}
+
+function tempClass(t){
+  if(t<0) return "tc-freezing";
+  if(t<10) return "tc-cold";
+  if(t<18) return "tc-cool";
+  if(t<26) return "tc-mild";
+  if(t<33) return "tc-warm";
+  if(t<40) return "tc-hot";
+  return "tc-scorching";
+}
+
+function tempColor(t){
+  if(t<0) return "#60a5fa";
+  if(t<10) return "#93c5fd";
+  if(t<18) return "#34d399";
+  if(t<26) return "#fbbf24";
+  if(t<33) return "#f97316";
+  if(t<40) return "#f87171";
+  return "#ef4444";
+}
+
+function aqiCat(v){
+  if(v<=50) return {l:"Good",c:"var(--success)",b:"aqi-good"};
+  if(v<=100) return {l:"Moderate",c:"var(--warn)",b:"aqi-moderate"};
+  if(v<=200) return {l:"Unhealthy",c:"var(--danger)",b:"aqi-unhealthy"};
+  return {l:"Hazardous",c:"#a855f7",b:"aqi-haz"};
+}
+
+// ─── STATE ───────────────────────────────────────────────────────────────────
+let data = LOCATIONS.map(l=>({...l,loaded:false}));
+let selected = null;
+let animFrame = null;
+let particles = [];
+let ltTimer = 0, ltActive = false;
+let currentType = "clear";
+
+// ─── INIT ─────────────────────────────────────────────────────────────────────
+window.addEventListener('DOMContentLoaded', async ()=>{
+  initStars();
+  populateFilters();
+  setInterval(()=>{ document.getElementById('clock').textContent=new Date().toLocaleTimeString('en-IN'); }, 1000);
+  await fetchBatch();
+  renderList();
+  const default_city = data.find(d=>d.name==="Kishni")||data.find(d=>d.name==="Etawah")||data[0];
+  selectLocation(default_city);
+  setInterval(async()=>{ await fetchBatch(); renderList(); updateTicker(); }, 600000);
+});
+
+function populateFilters(){
+  const states=[...new Set(LOCATIONS.map(l=>l.state))].sort();
+  const sel=document.getElementById('state-filter');
+  states.forEach(s=>{ const o=document.createElement('option'); o.value=s; o.textContent=s; sel.appendChild(o); });
+}
+
+// ─── FETCH (batched parallel) ─────────────────────────────────────────────────
+async function fetchBatch(){
+  const BS=12;
+  for(let i=0;i<LOCATIONS.length;i+=BS){
+    const batch=LOCATIONS.slice(i,i+BS);
+    await Promise.all(batch.map(async(loc,j)=>{
+      const idx=i+j;
+      try{
+        const url=`https://api.open-meteo.com/v1/forecast?latitude=${loc.lat}&longitude=${loc.lon}&current=temperature_2m,relative_humidity_2m,apparent_temperature,weather_code,wind_speed_10m,surface_pressure,visibility,precipitation&hourly=temperature_2m,precipitation_probability,weather_code&daily=temperature_2m_max,temperature_2m_min,weather_code&forecast_days=1&timezone=Asia%2FKolkata`;
+        const r=await fetch(url); const d=await r.json();
+        const c=d.current;
+        const wi=wmoInfo(c.weather_code);
+        data[idx]={
+          ...loc,loaded:true,
+          temp:Math.round(c.temperature_2m),
+          feels:Math.round(c.apparent_temperature),
+          hum:c.relative_humidity_2m,
+          wind:Math.round(c.wind_speed_10m),
+          pres:Math.round(c.surface_pressure),
+          vis:+(c.visibility/1000).toFixed(1),
+          precip:+(c.precipitation||0).toFixed(1),
+          wcode:c.weather_code, wi,
+          alert:alertLevel(wi.t, c.precipitation||0, c.temperature_2m),
+          hourly:d.hourly,
+          tmax:Math.round(d.daily.temperature_2m_max?.[0]??c.temperature_2m),
+          tmin:Math.round(d.daily.temperature_2m_min?.[0]??c.temperature_2m),
+          cloud:cloudCover(c.weather_code),
+        };
+      } catch(e){
+        data[idx]={...loc,loaded:false,temp:'--',alert:'green',wi:{l:'N/A',i:'🌡️',t:'clear'}};
+      }
+    }));
+    renderList();
+    if(selected){
+      const upd=data.find(d=>d.name===selected.name);
+      if(upd&&upd.loaded) updateHero(upd);
+    }
+  }
+  updateTicker();
+  document.getElementById('last-up').textContent=`Last updated: ${new Date().toLocaleTimeString('en-IN')}`;
+  drawMap();
+}
+
+function cloudCover(c){
+  if(c===0) return 5; if(c<=2) return 35; if(c<=3) return 80;
+  if(c<=55) return 90; return 95;
+}
+
+// ─── AQI ─────────────────────────────────────────────────────────────────────
+async function fetchAQI(loc){
+  try{
+    const url=`https://air-quality-api.open-meteo.com/v1/air-quality?latitude=${loc.lat}&longitude=${loc.lon}&current=pm10,pm2_5,carbon_monoxide,nitrogen_dioxide,ozone,european_aqi&timezone=Asia%2FKolkata`;
+    const r=await fetch(url); const d=await r.json(); const c=d.current;
+    const v=Math.round(c.european_aqi)||Math.round((c.pm2_5||15)*2+8);
+    renderAQI(v,c);
+  } catch(e){
+    const v=55+Math.round(Math.random()*90);
+    renderAQI(v,{pm2_5:v*0.5,pm10:v*1.1,nitrogen_dioxide:22,ozone:75,carbon_monoxide:480});
+  }
+}
+
+// ─── RENDER LIST ─────────────────────────────────────────────────────────────
+function renderList(){
+  const q=document.getElementById('search-input').value.toLowerCase();
+  const sf=document.getElementById('state-filter').value;
+  const tf=document.getElementById('type-filter').value;
+  const af=document.getElementById('alert-filter').value;
+  const filt=data.filter(d=>{
+    if(q&&!d.name.toLowerCase().includes(q)&&!d.state.toLowerCase().includes(q)) return false;
+    if(sf&&d.state!==sf) return false;
+    if(tf&&d.type!==tf) return false;
+    if(af&&d.alert!==af) return false;
+    return true;
+  });
+  document.getElementById('city-count').textContent=`${filt.length} locations`;
+  const c=document.getElementById('city-scroll');
+  c.innerHTML='';
+  if(!filt.length){c.innerHTML='<div class="loading">No results.</div>';return;}
+  filt.forEach(loc=>{
+    const col=loc.loaded?tempColor(loc.temp):'var(--muted)';
+    const typeIcon={metro:'🏙',city:'🏢',town:'🏘',village:'🌾'}[loc.type]||'📍';
+    const div=document.createElement('div');
+    div.className='city-item'+(selected&&selected.name===loc.name?' active':'');
+    div.innerHTML=`
+      <div class="ci-icon">${loc.loaded?(loc.wi?.i||'🌡️'):'⏳'}</div>
+      <div class="ci-info">
+        <div class="ci-name">${typeIcon} ${loc.name}</div>
+        <div class="ci-meta">${loc.state}</div>
+        <div class="ci-type">${loc.type.toUpperCase()}</div>
+      </div>
+      <div style="text-align:right;flex-shrink:0">
+        <div class="ci-temp" style="color:${col}">${loc.loaded?loc.temp+'°':'--°'}</div>
+        <div style="font-size:0.62rem;color:var(--muted)">${loc.loaded?(loc.wi?.l||''):'Loading'}</div>
+      </div>
+      <div class="ci-dot dot-${loc.alert||'green'}"></div>
+    `;
+    div.addEventListener('click',()=>selectLocation(loc));
+    c.appendChild(div);
+  });
+}
+
+// ─── SELECT ───────────────────────────────────────────────────────────────────
+function selectLocation(loc){
+  selected=loc;
+  renderList();
+  const d=data.find(x=>x.name===loc.name)||loc;
+  updateHero(d);
+  renderHourly(d);
+  fetchAQI(d);
+  startAnimation(d.wi?.t||'clear');
+  drawMap();
+}
+
+function updateHero(d){
+  document.getElementById('h-city').textContent=d.name;
+  document.getElementById('h-state').textContent=`${d.state}, India • ${({metro:'Metro City',city:'City',town:'Town',village:'Village'}[d.type]||d.type)}`;
+
+  // BIG ANIMATED TEMP
+  const tempEl=document.getElementById('h-temp');
+  const tVal=d.loaded?d.temp:'--';
+  const oldT=tempEl.textContent;
+  if(String(tVal)!==oldT){
+    tempEl.textContent=tVal;
+    tempEl.className=`th-temp ${d.loaded?tempClass(d.temp):'tc-mild'}`;
+    tempEl.classList.add('temp-updated');
+    setTimeout(()=>tempEl.classList.remove('temp-updated'),500);
+  }
+
+  document.getElementById('h-feels').textContent=d.loaded?`${d.feels}°C`:'--°C';
+  document.getElementById('h-cond').textContent=d.wi?.l||'—';
+  document.getElementById('h-desc').textContent=d.loaded?`${d.type.toUpperCase()} · ${d.state}`:'';
+  document.getElementById('h-hum').textContent=d.loaded?`${d.hum}%`:'--';
+  document.getElementById('h-wind').textContent=d.loaded?`${d.wind} km/h`:'--';
+  document.getElementById('h-pres').textContent=d.loaded?`${d.pres} hPa`:'--';
+  document.getElementById('h-vis').textContent=d.loaded?`${d.vis} km`:'--';
+  document.getElementById('h-precip').textContent=d.loaded?`${d.precip} mm`:'--';
+
+  const ab=document.getElementById('h-alert');
+  const al=d.alert||'green';
+  ab.className='alert-badge ab-'+al;
+  ab.textContent=al==='red'?'🔴 Red Alert':al==='yellow'?'🟡 Watch':'🟢 Normal';
+
+  // Metrics
+  document.getElementById('m-hum').innerHTML=`${d.loaded?d.hum:'--'}<span class="metric-unit">%</span>`;
+  document.getElementById('m-precip').innerHTML=`${d.loaded?d.precip:'--'}<span class="metric-unit">mm</span>`;
+  document.getElementById('m-cloud').innerHTML=`${d.loaded?d.cloud:'--'}<span class="metric-unit">%</span>`;
+
+  // THERMOMETER
+  updateThermometer(d);
+}
+
+function updateThermometer(d){
+  if(!d.loaded) return;
+  const t=d.temp;
+  // Range: -10 to 50 = 60 deg span
+  const pct=Math.max(0,Math.min(100,((t-(-10))/60)*100));
+  const col=tempColor(t);
+  const fill=document.getElementById('therm-fill');
+  const bulb=document.getElementById('therm-bulb');
+  fill.style.height=pct+'%';
+  fill.style.background=`linear-gradient(to top, ${col}, ${col}88)`;
+  bulb.style.background=col;
+  bulb.style.boxShadow=`0 0 10px ${col}88`;
+
+  document.getElementById('ts-cur').innerHTML=`${t}<span class="ts-unit">°C</span>`;
+  document.getElementById('ts-fl').innerHTML=`${d.feels}<span class="ts-unit">°C</span>`;
+  document.getElementById('ts-max').innerHTML=`${d.tmax}<span class="ts-unit">°C</span>`;
+  document.getElementById('ts-min').innerHTML=`${d.tmin}<span class="ts-unit">°C</span>`;
+  document.getElementById('ts-cur').style.color=col;
+
+  // Range marker — position on −10 to 50 scale
+  const markerPct=Math.max(0,Math.min(100,((t-(-10))/60)*100));
+  document.getElementById('temp-range-marker').style.left=markerPct+'%';
+}
+
+// ─── AQI RENDER ───────────────────────────────────────────────────────────────
+function renderAQI(v,p){
+  const cat=aqiCat(v);
+  document.getElementById('m-aqi').innerHTML=`<span style="color:${cat.c}">${v}</span>`;
+  document.getElementById('aqi-bar').className=`aqi-bar ${cat.b}`;
+  document.getElementById('aqi-label').innerHTML=`<span style="color:${cat.c}">${cat.l}</span>`;
+  const pm25=+(p.pm2_5||0).toFixed(1), pm10=+(p.pm10||0).toFixed(1);
+  const no2=+(p.nitrogen_dioxide||0).toFixed(1), o3=+(p.ozone||0).toFixed(0);
+  const co=+(p.carbon_monoxide||0).toFixed(0);
+  document.getElementById('aqi-detail').innerHTML=`
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
+      <div style="font-size:2.2rem;font-weight:700;font-family:'JetBrains Mono',monospace;color:${cat.c}">${v}</div>
+      <div>
+        <div style="font-size:1rem;font-weight:600;color:${cat.c}">${cat.l}</div>
+        <div style="font-size:0.72rem;color:var(--muted)">European AQI (EEA Standard)</div>
+      </div>
+    </div>
+    <div class="aqi-detail-grid">
+      <div class="poll-item"><div class="poll-name">PM2.5</div><div class="poll-val">${pm25}<span style="font-size:0.6rem;color:var(--muted)"> µg/m³</span></div></div>
+      <div class="poll-item"><div class="poll-name">PM10</div><div class="poll-val">${pm10}<span style="font-size:0.6rem;color:var(--muted)"> µg/m³</span></div></div>
+      <div class="poll-item"><div class="poll-name">NO₂</div><div class="poll-val">${no2}<span style="font-size:0.6rem;color:var(--muted)"> µg/m³</span></div></div>
+      <div class="poll-item"><div class="poll-name">O₃</div><div class="poll-val">${o3}<span style="font-size:0.6rem;color:var(--muted)"> µg/m³</span></div></div>
+      <div class="poll-item"><div class="poll-name">CO</div><div class="poll-val">${co}<span style="font-size:0.6rem;color:var(--muted)"> µg/m³</span></div></div>
+      <div class="poll-item"><div class="poll-name">AQI</div><div class="poll-val" style="color:${cat.c}">${v}</div></div>
+    </div>`;
+}
+
+// ─── HOURLY ───────────────────────────────────────────────────────────────────
+function renderHourly(d){
+  const el=document.getElementById('hourly-scroll');
+  if(!d.loaded||!d.hourly){el.innerHTML='<div class="loading">No data</div>';return;}
+  const now=new Date().getHours();
+  el.innerHTML='';
+  const times=d.hourly.time||[],temps=d.hourly.temperature_2m||[];
+  const probs=d.hourly.precipitation_probability||[],codes=d.hourly.weather_code||[];
+  for(let i=now;i<Math.min(now+24,times.length);i++){
+    const t=new Date(times[i]);
+    const wi=wmoInfo(codes[i]||0);
+    const tc=tempColor(temps[i]||20);
+    const div=document.createElement('div');
+    div.className='hour-item';
+    div.innerHTML=`
+      <div class="hour-time">${t.getHours().toString().padStart(2,'0')}:00</div>
+      <div class="hour-icon">${wi.i}</div>
+      <div class="hour-temp" style="color:${tc}">${Math.round(temps[i]||0)}°</div>
+      <div class="hour-rain">${probs[i]||0}% 💧</div>`;
+    el.appendChild(div);
+  }
+}
+
+// ─── TICKER ───────────────────────────────────────────────────────────────────
+function updateTicker(){
+  const alerts=data.filter(d=>d.alert==='red'||d.alert==='yellow').map(d=>{
+    const e=d.alert==='red'?'🔴':'🟡';
+    return `${e} ${d.name}, ${d.state}: ${d.wi?.l||'Alert'} — ${d.loaded?d.temp+'°C':''}`;
+  });
+  if(!alerts.length) alerts.push('✅ No active weather alerts across India');
+  const txt=alerts.join('   •   ');
+  document.getElementById('t1').textContent=txt;
+  document.getElementById('t2').textContent=txt;
+}
+
+// ─── FILTERS ─────────────────────────────────────────────────────────────────
+['search-input','state-filter','type-filter','alert-filter'].forEach(id=>{
+  document.getElementById(id).addEventListener('input',renderList);
+  document.getElementById(id).addEventListener('change',renderList);
+});
+
+// ─── STARS ───────────────────────────────────────────────────────────────────
+function initStars(){
+  const cv=document.getElementById('stars-canvas');
+  const ctx=cv.getContext('2d');
+  cv.width=window.innerWidth; cv.height=window.innerHeight;
+  const stars=Array.from({length:200},()=>({
+    x:Math.random()*cv.width, y:Math.random()*cv.height,
+    r:Math.random()*1.4+0.2, a:Math.random(), s:Math.random()*0.004+0.001
+  }));
+  (function draw(){
+    ctx.clearRect(0,0,cv.width,cv.height);
+    stars.forEach(s=>{
+      s.a+=s.s; if(s.a>1){s.a=0;}
+      ctx.beginPath(); ctx.arc(s.x,s.y,s.r,0,Math.PI*2);
+      ctx.fillStyle=`rgba(148,163,184,${s.a})`; ctx.fill();
+    });
+    requestAnimationFrame(draw);
+  })();
+}
+
+// ─── WEATHER ANIMATION ENGINE ─────────────────────────────────────────────────
+function startAnimation(type){
+  currentType=type;
+  particles=[];
+  const cv=document.getElementById('weather-canvas');
+  const wrap=cv.parentElement;
+  cv.width=wrap.offsetWidth||700; cv.height=wrap.offsetHeight||300;
+
+  if(type==='rain'||type==='thunder'){
+    for(let i=0;i<(type==='thunder'?100:70);i++) particles.push(mkRain(cv));
+  } else if(type==='snow'){
+    for(let i=0;i<60;i++) particles.push(mkSnow(cv));
+  } else if(type==='haze'){
+    for(let i=0;i<15;i++) particles.push(mkHaze(cv));
+  } else {
+    for(let i=0;i<10;i++) particles.push(mkCloud(cv));
+  }
+  if(animFrame) cancelAnimationFrame(animFrame);
+  animate(cv);
+}
+
+function mkRain(cv){return{x:Math.random()*cv.width,y:Math.random()*cv.height-cv.height,len:Math.random()*18+8,speed:Math.random()*9+7,op:Math.random()*0.55+0.3,w:Math.random()*1.2+0.4};}
+function mkSnow(cv){return{x:Math.random()*cv.width,y:Math.random()*cv.height,r:Math.random()*3.5+2,speed:Math.random()*1.5+0.4,drift:Math.random()*0.6-0.3,op:Math.random()*0.7+0.3,angle:Math.random()*Math.PI*2};}
+function mkHaze(cv){return{x:Math.random()*cv.width,y:Math.random()*cv.height,r:Math.random()*100+50,speed:Math.random()*0.25+0.05,op:Math.random()*0.07+0.03,ph:Math.random()*Math.PI*2};}
+function mkCloud(cv){return{x:Math.random()*cv.width,y:Math.random()*70+10,w:Math.random()*130+60,h:Math.random()*45+20,speed:Math.random()*0.35+0.1,op:Math.random()*0.1+0.03};}
+
+function animate(cv){
+  const ctx=cv.getContext('2d');
+  ctx.clearRect(0,0,cv.width,cv.height);
+  const type=currentType;
+
+  // Atmospheric gradient overlay
+  const grad=ctx.createLinearGradient(0,0,0,cv.height);
+  if(type==='thunder'){grad.addColorStop(0,'rgba(10,5,30,0.75)');grad.addColorStop(1,'rgba(25,10,55,0.45)');}
+  else if(type==='rain'){grad.addColorStop(0,'rgba(8,15,45,0.55)');grad.addColorStop(1,'rgba(15,30,70,0.3)');}
+  else if(type==='snow'){grad.addColorStop(0,'rgba(15,25,55,0.45)');grad.addColorStop(1,'rgba(30,50,90,0.25)');}
+  else if(type==='haze'){grad.addColorStop(0,'rgba(160,120,60,0.1)');grad.addColorStop(1,'rgba(180,140,80,0.06)');}
+  else{grad.addColorStop(0,'rgba(8,18,55,0.3)');grad.addColorStop(1,'rgba(5,12,35,0.1)');}
+  ctx.fillStyle=grad; ctx.fillRect(0,0,cv.width,cv.height);
+
+  if(type==='rain'||type==='thunder'){
+    particles.forEach(p=>{
+      // 3D perspective: far drops lighter & shorter
+      const depth=p.op;
+      ctx.beginPath();
+      ctx.moveTo(p.x,p.y);
+      ctx.lineTo(p.x-p.len*0.18,p.y+p.len);
+      ctx.strokeStyle=`rgba(96,165,250,${depth})`;
+      ctx.lineWidth=p.w; ctx.lineCap='round'; ctx.stroke();
+      // Splash
+      if(p.y+p.len>cv.height-8){
+        ctx.beginPath();
+        ctx.ellipse(p.x,cv.height-4,p.w*5,p.w*1.5,0,0,Math.PI*2);
+        ctx.strokeStyle=`rgba(147,197,253,0.25)`;
+        ctx.lineWidth=0.6; ctx.stroke();
+        // Ripple
+        ctx.beginPath();
+        ctx.ellipse(p.x,cv.height-4,p.w*10,p.w*2.5,0,0,Math.PI*2);
+        ctx.strokeStyle=`rgba(147,197,253,0.1)`;
+        ctx.lineWidth=0.4; ctx.stroke();
+      }
+      p.y+=p.speed; p.x-=p.speed*0.12;
+      if(p.y>cv.height){p.y=-25;p.x=Math.random()*cv.width;}
+    });
+
+    if(type==='thunder'){
+      ltTimer++;
+      if(ltTimer>100+Math.random()*200){ltTimer=0;ltActive=true;setTimeout(()=>{ltActive=false;},180);}
+      if(ltActive){
+        // Multiple lightning bolts
+        drawLightning3D(ctx,cv.width*0.25+Math.random()*cv.width*0.5,0,cv);
+        if(Math.random()>0.5) drawLightning3D(ctx,cv.width*0.1+Math.random()*cv.width*0.3,0,cv);
+        // Full screen flash
+        const fl=ctx.createLinearGradient(0,0,0,cv.height);
+        fl.addColorStop(0,'rgba(253,230,138,0.18)');
+        fl.addColorStop(0.5,'rgba(253,230,138,0.08)');
+        fl.addColorStop(1,'rgba(253,230,138,0.02)');
+        ctx.fillStyle=fl; ctx.fillRect(0,0,cv.width,cv.height);
+      }
+    }
+  }
+
+  if(type==='snow'){
+    particles.forEach(p=>{
+      ctx.save(); ctx.translate(p.x,p.y); ctx.rotate(p.angle);
+      ctx.strokeStyle=`rgba(224,242,254,${p.op})`; ctx.lineWidth=0.8;
+      for(let i=0;i<6;i++){
+        ctx.save(); ctx.rotate((Math.PI/3)*i);
+        ctx.beginPath(); ctx.moveTo(0,0); ctx.lineTo(0,-p.r*2.8); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(0,-p.r*1.1); ctx.lineTo(p.r*0.65,-p.r*1.75); ctx.moveTo(0,-p.r*1.1); ctx.lineTo(-p.r*0.65,-p.r*1.75); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(0,-p.r*1.9); ctx.lineTo(p.r*0.4,-p.r*2.3); ctx.moveTo(0,-p.r*1.9); ctx.lineTo(-p.r*0.4,-p.r*2.3); ctx.stroke();
+        ctx.restore();
+      }
+      ctx.restore();
+      p.y+=p.speed; p.x+=p.drift; p.angle+=0.008;
+      if(p.y>cv.height+10){p.y=-15;p.x=Math.random()*cv.width;}
+    });
+  }
+
+  if(type==='haze'){
+    particles.forEach(p=>{
+      p.ph+=0.004; p.x+=p.speed;
+      if(p.x>cv.width+p.r) p.x=-p.r;
+      const op=p.op*(0.7+Math.sin(p.ph)*0.3);
+      const g=ctx.createRadialGradient(p.x,p.y,0,p.x,p.y,p.r);
+      g.addColorStop(0,`rgba(180,140,70,${op})`); g.addColorStop(0.5,`rgba(200,160,90,${op*0.5})`); g.addColorStop(1,'rgba(180,140,70,0)');
+      ctx.fillStyle=g; ctx.fillRect(p.x-p.r,p.y-p.r,p.r*2,p.r*2);
+    });
+    // Haze stripes
+    for(let i=0;i<5;i++){
+      ctx.beginPath();
+      ctx.moveTo(0,50+i*50); ctx.lineTo(cv.width,60+i*50);
+      ctx.strokeStyle=`rgba(200,160,80,0.04)`; ctx.lineWidth=20; ctx.stroke();
+    }
+  }
+
+  if(type==='cloud'||type==='clear'){
+    particles.forEach(p=>{
+      p.x+=p.speed; if(p.x>cv.width+p.w) p.x=-p.w;
+      ctx.fillStyle=`rgba(148,163,184,${p.op})`;
+      drawCloud(ctx,p.x,p.y,p.w,p.h);
+    });
+    if(type==='clear'){
+      // Sun glow in corner
+      const sg=ctx.createRadialGradient(cv.width-60,30,0,cv.width-60,30,120);
+      sg.addColorStop(0,'rgba(251,191,36,0.12)');
+      sg.addColorStop(0.5,'rgba(251,191,36,0.04)');
+      sg.addColorStop(1,'rgba(251,191,36,0)');
+      ctx.fillStyle=sg; ctx.fillRect(cv.width-180,0,180,150);
+    }
+  }
+
+  animFrame=requestAnimationFrame(()=>animate(cv));
+}
+
+function drawCloud(ctx,x,y,w,h){
+  ctx.beginPath();
+  ctx.ellipse(x,y,w/2,h/2,0,0,Math.PI*2);
+  ctx.ellipse(x-w*0.28,y+h*0.12,w*0.38,h*0.42,0,0,Math.PI*2);
+  ctx.ellipse(x+w*0.28,y+h*0.08,w*0.32,h*0.38,0,0,Math.PI*2);
+  ctx.ellipse(x+w*0.1,y-h*0.15,w*0.25,h*0.3,0,0,Math.PI*2);
+  ctx.fill();
+}
+
+function drawLightning3D(ctx,sx,sy,cv){
+  ctx.save();
+  // Multiple glow passes for 3D depth effect
+  const passes=[
+    {w:18,a:0.04,blur:true},{w:10,a:0.1},{w:5,a:0.25},{w:2,a:0.6},{w:0.8,a:1.0}
+  ];
+  const pts=[[sx,sy]];
+  let x=sx,y=sy;
+  for(let s=0;s<14;s++){
+    x+=(Math.random()-0.5)*70; y+=cv.height/14;
+    pts.push([x,y]);
+  }
+  passes.forEach(pass=>{
+    ctx.beginPath();
+    pts.forEach(([px,py],i)=>{i===0?ctx.moveTo(px,py):ctx.lineTo(px,py);});
+    ctx.strokeStyle=`rgba(253,230,138,${pass.a})`;
+    ctx.lineWidth=pass.w; ctx.lineJoin='round'; ctx.lineCap='round'; ctx.stroke();
+  });
+  // Branch bolt
+  const bIdx=Math.floor(pts.length*0.3);
+  if(pts[bIdx]){
+    ctx.beginPath(); ctx.moveTo(...pts[bIdx]);
+    let bx=pts[bIdx][0],by=pts[bIdx][1];
+    for(let s=0;s<6;s++){bx+=(Math.random()-0.5)*50+20;by+=cv.height/20;ctx.lineTo(bx,by);}
+    ctx.strokeStyle='rgba(253,230,138,0.5)'; ctx.lineWidth=1.2; ctx.stroke();
+    // Mini branch
+    ctx.beginPath(); ctx.moveTo(bx,by);
+    for(let s=0;s<3;s++){bx+=(Math.random()-0.5)*30+15;by+=cv.height/30;ctx.lineTo(bx,by);}
+    ctx.strokeStyle='rgba(253,230,138,0.25)'; ctx.lineWidth=0.6; ctx.stroke();
+  }
+  ctx.restore();
+}
+
+// ─── INDIA MAP ────────────────────────────────────────────────────────────────
+function drawMap(){
+  const cv=document.getElementById('map-canvas');
+  cv.width=cv.offsetWidth||600; cv.height=400;
+  const ctx=cv.getContext('2d');
+  const W=cv.width,H=cv.height;
+  ctx.fillStyle='#0a0f1e'; ctx.fillRect(0,0,W,H);
+
+  function proj(lat,lon){
+    return{x:(lon-68)/(97-68)*(W*0.88)+W*0.06, y:H-(lat-6.5)/(37-6.5)*(H*0.9)-H*0.04};
+  }
+
+  // India simplified outline
+  const outline=[[37.0,73.5],[36.0,76.0],[35.0,77.0],[34.0,79.0],[33.0,79.5],[32.5,79.0],[31.5,78.5],[30.5,78.5],[29.0,79.0],[28.0,80.0],[27.0,81.0],[26.0,83.0],[25.0,84.0],[24.0,86.0],[23.0,87.5],[22.0,88.5],[21.5,89.0],[21.0,87.0],[20.0,86.5],[18.5,85.0],[17.0,83.5],[15.5,80.5],[14.0,80.3],[12.0,80.2],[10.5,79.5],[9.0,78.5],[8.5,77.5],[8.0,76.5],[8.3,75.0],[9.0,74.0],[10.0,72.5],[11.0,70.5],[12.5,69.5],[14.0,68.5],[16.0,68.2],[18.0,68.5],[20.0,68.5],[22.0,69.0],[22.5,68.3],[23.5,68.0],[24.0,69.5],[25.0,71.0],[25.5,72.5],[26.5,73.5],[27.5,73.0],[28.5,71.5],[29.5,71.5],[30.5,70.5],[31.5,71.0],[32.5,72.0],[34.0,72.0],[35.5,72.5],[36.0,72.5],[37.0,73.5]];
+  ctx.beginPath();
+  outline.forEach(([la,lo],i)=>{const{x,y}=proj(la,lo);i===0?ctx.moveTo(x,y):ctx.lineTo(x,y);});
+  ctx.closePath();
+  ctx.fillStyle='rgba(15,23,42,0.85)'; ctx.fill();
+  ctx.strokeStyle='rgba(56,189,248,0.18)'; ctx.lineWidth=1; ctx.stroke();
+
+  // Glow for selected location
+  if(selected){
+    const{x,y}=proj(selected.lat,selected.lon);
+    const rg=ctx.createRadialGradient(x,y,0,x,y,30);
+    rg.addColorStop(0,'rgba(56,189,248,0.3)');
+    rg.addColorStop(1,'rgba(56,189,248,0)');
+    ctx.fillStyle=rg; ctx.fillRect(x-30,y-30,60,60);
+  }
+
+  // Draw all location dots with temperature
+  data.forEach(loc=>{
+    if(!loc.lat||!loc.lon) return;
+    const{x,y}=proj(loc.lat,loc.lon);
+    if(x<0||x>W||y<0||y>H) return;
+    const al=loc.alert||'green';
+    const col=al==='red'?'#f87171':al==='yellow'?'#fbbf24':'#34d399';
+
+    // Alert ring
+    if(al!=='green'){
+      ctx.beginPath(); ctx.arc(x,y,7,0,Math.PI*2);
+      ctx.fillStyle=col+'22'; ctx.fill();
+      ctx.beginPath(); ctx.arc(x,y,5,0,Math.PI*2);
+      ctx.strokeStyle=col+'55'; ctx.lineWidth=0.8; ctx.stroke();
+    }
+
+    // Dot size based on type
+    const dotR = {metro:5,city:3.5,town:2.5,village:2}[loc.type]||2.5;
+    ctx.beginPath(); ctx.arc(x,y,dotR,0,Math.PI*2);
+    ctx.fillStyle=loc.loaded?tempColor(loc.temp):col;
+    ctx.fill();
+
+    // Selected highlight
+    if(selected&&selected.name===loc.name){
+      ctx.beginPath(); ctx.arc(x,y,9,0,Math.PI*2);
+      ctx.strokeStyle='rgba(56,189,248,0.9)'; ctx.lineWidth=1.8; ctx.stroke();
+    }
+
+    // Temperature label for metros and selected
+    if((loc.type==='metro'||loc.type==='city'||(selected&&selected.name===loc.name))&&loc.loaded){
+      const tc=tempColor(loc.temp);
+      ctx.fillStyle=tc;
+      ctx.font=`bold ${selected&&selected.name===loc.name?11:9}px 'Space Grotesk', sans-serif`;
+      ctx.fillText(loc.temp+'°', x+dotR+3, y+4);
+    }
+
+    // Name label for selected
+    if(selected&&selected.name===loc.name){
+      ctx.fillStyle='#e2e8f0';
+      ctx.font='bold 11px "Space Grotesk", sans-serif';
+      ctx.fillText(loc.name, x+11, y-4);
+    }
+  });
+
+  // Legend
+  ctx.fillStyle='rgba(10,15,30,0.8)'; ctx.beginPath(); ctx.roundRect(8,H-60,120,52,6); ctx.fill();
+  [[`#34d399`,'Normal'],[`#fbbf24`,'Watch'],[`#f87171`,'Alert']].forEach(([c,l],i)=>{
+    ctx.beginPath(); ctx.arc(18,H-47+i*16,5,0,Math.PI*2); ctx.fillStyle=c; ctx.fill();
+    ctx.fillStyle='rgba(148,163,184,0.9)'; ctx.font='10px "Space Grotesk",sans-serif'; ctx.fillText(l,28,H-43+i*16);
+  });
+
+  // Temp scale
+  ctx.fillStyle='rgba(10,15,30,0.8)'; ctx.beginPath(); ctx.roundRect(W-100,H-30,92,22,5); ctx.fill();
+  const tempGrad=ctx.createLinearGradient(W-95,0,W-14,0);
+  tempGrad.addColorStop(0,'#60a5fa'); tempGrad.addColorStop(0.33,'#34d399');
+  tempGrad.addColorStop(0.66,'#fbbf24'); tempGrad.addColorStop(1,'#ef4444');
+  ctx.fillStyle=tempGrad; ctx.fillRect(W-95,H-25,78,8); ctx.beginPath();
+  ctx.strokeStyle='rgba(255,255,255,0.1)'; ctx.lineWidth=0.5; ctx.strokeRect(W-95,H-25,78,8);
+  ctx.fillStyle='rgba(148,163,184,0.8)'; ctx.font='8px "JetBrains Mono",monospace';
+  ctx.fillText('Cold',W-95,H-11); ctx.fillText('Hot',W-26,H-11);
+}
+
+window.addEventListener('resize',()=>{
+  if(selected) startAnimation(selected.wi?.t||'clear');
+  drawMap();
+});
+setInterval(drawMap, 8000);
+setTimeout(drawMap, 800);
+</script>
+</body>
+</html>
